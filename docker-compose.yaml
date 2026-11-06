@@ -1,11 +1,21 @@
 services:
   epusdt:
-    image: gmwallet/epusdt:latest
-    restart: always
+    pull_policy: build
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        BUILD_VERSION: local
+    restart: unless-stopped
+    environment:
+      TZ: Asia/Shanghai
+      EPUSDT_CONFIG: /app/conf/.env
     volumes:
-      - ./env:/app/.env
+      - ${EPUSDT_DATA_DIR:-/www/server/xcode-epusdt-data}:/app/conf
     ports:
-      - "8000:8000"
+      - "127.0.0.1:${EPUSDT_PORT:-18080}:8000"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"

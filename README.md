@@ -98,13 +98,21 @@ Epusdt 已完成第三方安全审计。
 
 完整文档请访问：**[epusdt.com](https://epusdt.com)**
 
+本仓库的 Docker 快速启动，在源码根目录执行：
+
+```bash
+docker compose up -d
+```
+
+首次自动构建并启动，配置和数据库持久化到 `/www/server/xcode-epusdt-data`。宝塔反代目标为 `http://127.0.0.1:18080`，首次通过网页完成安装。更新源码后再次执行同一命令即可。
+
 快速入门：
 
 | 教程 | 说明 |
 |------|------|
-| [宝塔 + Docker：从本仓库源码部署](wiki/BAOTA_DOCKER.md) | 使用仓库内 compose.baota.yaml，完整持久化配置和数据库 |
+| [宝塔 + Docker：从本仓库源码部署](wiki/BAOTA_DOCKER.md) | `docker compose up -d` 自动构建启动，网页初始化 |
 | [仓库内：epctl 安装脚本](wiki/EPCTL.md) | Linux 二进制安装、升级、状态查看与 Docker 验收脚本 |
-| [Docker 部署](https://epusdt.com/guide/installation/docker) | 推荐方式，一键启动 |
+| [Docker 部署](wiki/docker-RUN.md) | 本仓库默认 Compose 与常用命令 |
 | [宝塔面板部署](https://epusdt.com/guide/installation/aapanel) | 适合宝塔用户 |
 | [手动部署](https://epusdt.com/guide/installation/manual.html) | 完全手动控制 |
 | [开发者 API 文档](https://epusdt.com/zh/guide/integration/gmpay.html) | 接口集成指南 |

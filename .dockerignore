@@ -1,0 +1,11 @@
+.git
+.env
+env
+**/.env
+**/*.db
+**/*.db-shm
+**/*.db-wal
+src/runtime
+src/logs
+data
+backups

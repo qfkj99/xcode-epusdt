@@ -3,13 +3,11 @@ FROM golang:alpine AS builder
 RUN apk add --no-cache --update git build-base
 ENV CGO_ENABLED=0
 
-WORKDIR /app
-
-COPY . /app
-
 WORKDIR /app/src
-ARG BUILD_VERSION=0.0.0-dev
+COPY src/go.mod src/go.sum ./
 RUN go mod download
+COPY src/ ./
+ARG BUILD_VERSION=0.0.0-dev
 RUN go build -trimpath -ldflags="-s -w -X github.com/GMWalletApp/epusdt/config.BuildVersion=${BUILD_VERSION}" -o /app/epusdt .
 
 FROM alpine:latest AS runner
