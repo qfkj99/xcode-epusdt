@@ -1,0 +1,21 @@
+services:
+  epusdt:
+    image: xcode-epusdt:local
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        BUILD_VERSION: baota-local
+    restart: unless-stopped
+    environment:
+      TZ: Asia/Shanghai
+      EPUSDT_CONFIG: /app/conf/.env
+    ports:
+      - "127.0.0.1:18080:8000"
+    volumes:
+      - /www/server/xcode-epusdt-data:/app/conf
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
