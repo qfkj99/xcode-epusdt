@@ -107,7 +107,23 @@ func HttpServerStart() {
 
 func MiddlewareRegister(e *echo.Echo) {
 	if config.HTTPAccessLog {
-		e.Use(echoMiddleware.Logger())
+		logger := echoMiddleware.Logger()
+		e.Use(func(next echo.HandlerFunc) echo.HandlerFunc {
+			logged := logger(next)
+			return func(ctx echo.Context) error {
+				req := ctx.Request()
+				if req.URL.Path != route.EPayOrderQueryPath {
+					return logged(ctx)
+				}
+				// EasyPay clients send the merchant key in the query string.
+				// Hide this endpoint's entire query from the access logger while
+				// preserving URL.RawQuery for authentication and order lookup.
+				originalURI := req.RequestURI
+				req.RequestURI = req.URL.EscapedPath()
+				defer func() { req.RequestURI = originalURI }()
+				return logged(ctx)
+			}
+		})
 	}
 	e.Use(middleware.RequestUUID())
 }

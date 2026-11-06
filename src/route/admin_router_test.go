@@ -24,6 +24,9 @@ import (
 	appLog "github.com/GMWalletApp/epusdt/util/log"
 	"github.com/go-resty/resty/v2"
 	"github.com/labstack/echo/v4"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
+	"go.uber.org/zap/zaptest/observer"
 )
 
 const (
@@ -2249,6 +2252,30 @@ func TestAdminNotificationChannels_CRUD(t *testing.T) {
 // - events as string array
 func TestAdminNotificationChannels_TelegramFrontendPayloadCompatibility(t *testing.T) {
 	e, token := setupAdminTestEnv(t)
+
+	// Creating a Telegram channel starts an asynchronous command-bot reload.
+	// With no command-bot settings its disabled log is the last access to the
+	// test globals; wait for it before the next test replaces the fixture.
+	reloadDone := make(chan struct{}, 1)
+	previousLogger := appLog.Sugar
+	core, _ := observer.New(zap.InfoLevel)
+	appLog.Sugar = zap.New(core, zap.Hooks(func(entry zapcore.Entry) error {
+		if strings.Contains(entry.Message, "command bot disabled (reason=admin create telegram channel)") {
+			select {
+			case reloadDone <- struct{}{}:
+			default:
+			}
+		}
+		return nil
+	})).Sugar()
+	t.Cleanup(func() {
+		select {
+		case <-reloadDone:
+			appLog.Sugar = previousLogger
+		case <-time.After(5 * time.Second):
+			t.Error("Telegram command-bot reload did not finish before fixture cleanup")
+		}
+	})
 
 	rec := doPostAdmin(e, "/admin/api/v1/notification-channels", map[string]interface{}{
 		"name": "frontend-telegram",

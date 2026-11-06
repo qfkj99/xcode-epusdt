@@ -188,9 +188,10 @@ func TestDispatchPendingCallbacksHonorsBackoffAndPersistsSuccess(t *testing.T) {
 	if err := dao.Mdb.Create(order).Error; err != nil {
 		t.Fatalf("create callback order: %v", err)
 	}
+	defer waitForCallbackCompletion(t, order.TradeId)
 
 	dispatchPendingCallbacks()
-	time.Sleep(200 * time.Millisecond)
+	waitForCallbackCompletion(t, order.TradeId)
 	if got := atomic.LoadInt32(&requestCount); got != 0 {
 		t.Fatalf("unexpected callback count before backoff elapsed: %d", got)
 	}
@@ -249,6 +250,7 @@ func TestDispatchPendingCallbacksResumesRetryAfterRestart(t *testing.T) {
 	if err := dao.Mdb.Create(order).Error; err != nil {
 		t.Fatalf("create callback order: %v", err)
 	}
+	defer waitForCallbackCompletion(t, order.TradeId)
 
 	dispatchPendingCallbacks()
 
@@ -264,6 +266,9 @@ func TestDispatchPendingCallbacksResumesRetryAfterRestart(t *testing.T) {
 		t.Fatalf("first callback request count = %d, want 1", got)
 	}
 
+	// Persisted callback state can become visible before processCallback's
+	// deferred cleanup releases the limiter and removes the inflight entry.
+	waitForCallbackCompletion(t, order.TradeId)
 	callbackLimiter = make(chan struct{}, 1)
 	callbackInflight = sync.Map{}
 
@@ -324,6 +329,7 @@ func TestDispatchPendingCallbacksEpayRequiresAck(t *testing.T) {
 	if err := dao.Mdb.Create(order).Error; err != nil {
 		t.Fatalf("create callback order: %v", err)
 	}
+	defer waitForCallbackCompletion(t, order.TradeId)
 
 	dispatchPendingCallbacks()
 
@@ -378,6 +384,7 @@ func TestDispatchPendingCallbacksEpayAcceptsTrimmedOk(t *testing.T) {
 	if err := dao.Mdb.Create(order).Error; err != nil {
 		t.Fatalf("create callback order: %v", err)
 	}
+	defer waitForCallbackCompletion(t, order.TradeId)
 
 	dispatchPendingCallbacks()
 
@@ -746,6 +753,7 @@ func TestDispatchPendingCallbacksEpayAcceptsSuccessAck(t *testing.T) {
 	if err := dao.Mdb.Create(order).Error; err != nil {
 		t.Fatalf("create callback order: %v", err)
 	}
+	defer waitForCallbackCompletion(t, order.TradeId)
 
 	dispatchPendingCallbacks()
 
@@ -759,6 +767,28 @@ func TestDispatchPendingCallbacksEpayAcceptsSuccessAck(t *testing.T) {
 
 	if got := atomic.LoadInt32(&requestCount); got != 1 {
 		t.Fatalf("callback request count = %d, want 1", got)
+	}
+}
+
+func waitForCallbackCompletion(t *testing.T, tradeID string) {
+	t.Helper()
+
+	timeout := time.NewTimer(3 * time.Second)
+	defer timeout.Stop()
+	poll := time.NewTicker(10 * time.Millisecond)
+	defer poll.Stop()
+	for {
+		// dispatchPendingCallbacks registers synchronously before launching the
+		// worker. Observing its deletion synchronizes with the final cleanup;
+		// seeing a persisted result or an empty limiter alone is insufficient.
+		if _, inflight := callbackInflight.Load(tradeID); !inflight {
+			return
+		}
+		select {
+		case <-timeout.C:
+			t.Fatalf("callback worker %q did not finish before timeout", tradeID)
+		case <-poll.C:
+		}
 	}
 }
 

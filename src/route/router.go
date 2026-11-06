@@ -22,6 +22,8 @@ import (
 	echoMiddleware "github.com/labstack/echo/v4/middleware"
 )
 
+const EPayOrderQueryPath = "/payments/epay/v1/order/create-transaction/api.php"
+
 // resolveEPayTypeSelector only claims the type as a selector when it maps to a
 // currently supported payment asset. Non-selector values are handled by the
 // caller, which now only accepts empty type or alipay before falling back to
@@ -95,6 +97,7 @@ func RegisterRoute(e *echo.Echo) {
 	// removed — the default seeded api_key is always available, and
 	// having two sources of truth led to inbound/outbound sig mismatch.
 	epayV1 := paymentRoute.Group("/epay/v1")
+	e.Match([]string{http.MethodPost, http.MethodGet}, EPayOrderQueryPath, comm.Ctrl.QueryEPayOrder)
 	epayV1.Match([]string{http.MethodPost, http.MethodGet}, "/order/create-transaction/submit.php", func(ctx echo.Context) error {
 		params := make(map[string]interface{})
 		copyParams := func(values map[string][]string) {

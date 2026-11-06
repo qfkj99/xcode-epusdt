@@ -107,6 +107,7 @@ Epusdt 已完成第三方安全审计。
 | [宝塔面板部署](https://epusdt.com/guide/installation/aapanel) | 适合宝塔用户 |
 | [手动部署](https://epusdt.com/guide/installation/manual.html) | 完全手动控制 |
 | [开发者 API 文档](https://epusdt.com/zh/guide/integration/gmpay.html) | 接口集成指南 |
+| [易支付查单与 Sub2API 对接](wiki/epay-sub2api.md) | 跳转收银台、商户查单与 TRON / BSC USDT 配置 |
 
 仓库内还提供顶层脚本：
 
