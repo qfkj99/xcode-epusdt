@@ -102,6 +102,7 @@ Epusdt 已完成第三方安全审计。
 
 | 教程 | 说明 |
 |------|------|
+| [宝塔 + Docker：从本仓库源码部署](wiki/BAOTA_DOCKER.md) | 使用仓库内 compose.baota.yaml，完整持久化配置和数据库 |
 | [仓库内：epctl 安装脚本](wiki/EPCTL.md) | Linux 二进制安装、升级、状态查看与 Docker 验收脚本 |
 | [Docker 部署](https://epusdt.com/guide/installation/docker) | 推荐方式，一键启动 |
 | [宝塔面板部署](https://epusdt.com/guide/installation/aapanel) | 适合宝塔用户 |
