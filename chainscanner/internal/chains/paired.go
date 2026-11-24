@@ -40,6 +40,7 @@ func (s *pairedSource) Close() {
 }
 func newPaired(ctx context.Context, n Network, u *url.URL, p string) (Source, error) {
 	history := Network{Name: n.Name, URL: n.HistoryURL, APIKey: n.HistoryAPIKey, TraceCalls: n.TraceCalls}
+	history.AssetEvents = n.AssetEvents
 	src, err := NewSource(ctx, history)
 	if err != nil {
 		return nil, err
@@ -98,15 +99,6 @@ func newPaired(ctx context.Context, n Network, u *url.URL, p string) (Source, er
 			return nil, errors.New("expected TRON mainnet")
 		}
 	} else {
-		if n.Name == "solana" {
-			v, e := s.call(probe, "getGenesisHash")
-			if e != nil {
-				return nil, e
-			}
-			if v.String() != "5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d" {
-				return nil, errors.New("expected Solana mainnet")
-			}
-		}
 		var stream func(context.Context, func()) error
 		switch p {
 		case "ws":

@@ -2,10 +2,12 @@
 <h1 align="center">ChainScanner</h1>
 <p align="center"><strong>订阅链上地址，通过 WebSocket、gRPC 或 HTTP 接收相关交易。</strong></p>
 <p align="center"><a href="README.md">English</a> · <strong>简体中文</strong> · <a href="README.vi.md">Tiếng Việt</a> · <a href="README.es.md">Español</a> · <a href="README.ru.md">Русский</a></p>
-<p align="center">Go 1.25+ &nbsp;·&nbsp; <a href="LICENSE">AGPL-3.0</a> &nbsp;·&nbsp; 17 条网络</p>
+<p align="center">Go 1.25+ &nbsp;·&nbsp; <a href="LICENSE">AGPL-3.0</a> &nbsp;·&nbsp; 18 条网络</p>
 <p align="center"><a href="docs/guide/zh-CN.md#quick-start">快速开始</a> &nbsp;·&nbsp; <a href="docs/guide/zh-CN.md#networks">支持的网络</a> &nbsp;·&nbsp; <a href="docs/api/zh-CN.md">接口文档</a></p>
 
 ---
+
+[Bitcoin 主网节点与配置](docs/bitcoin-nodes.zh-CN.md)
 
 ## 为什么做 ChainScanner
 
@@ -16,11 +18,11 @@ ChainScanner 把监听集中到一个独立服务里。同一条链上的所有�
 各业务自行维护业务逻辑、订单状态和钱包余额。ChainScanner 提供共享的链上监听基础设施，统一处理地址订阅、区块扫描和事件投递。
 
 > [!IMPORTANT]
-> **Solana、TON（GRAM）和 Plasma 的高频交易查询**需要留意公共节点限额。严格查询要求两家独立服务商返回一致结果。在一次使用免费公共 RPC 的 15 分钟主网测试中，Solana 和 Plasma 各有 3 次严格查询未通过，TON 的 3 次均通过。预计查询量较大时，建议为每条链提前配置两个来自不同服务商的兜底节点。ChainScanner 让多个地址和订阅服务共享同一次扫块，减少了重复的 RPC 请求。偶尔补扫和核验交易时，多数服务商的免费或入门套餐通常就够用。持续高并发时，请核对每秒请求上限和月度配额。[配置兜底节点](docs/api/zh-CN.md#fallback) · [查看供应商介绍](#fallback-providers)
+> 按哈希查询优先使用兜底节点，取得可用交易内容即返回。Scanner 排除曾经扫到这笔订阅交易的节点。 [查看供应商介绍](#fallback-providers)
 
 ## 使用场景
 
-- **链上收款网关。** [EPUSDT 的接入 PR](https://github.com/GMWalletApp/epusdt/pull/127) 订阅商户收款地址，匹配到订单后进入「确认中」，再通过双节点严格查询核验交易后入账。
+- **链上收款网关。** [EPUSDT 的接入 PR](https://github.com/GMWalletApp/epusdt/pull/127) 订阅商户收款地址，匹配到订单后进入「确认中」，再通过严格查询核验交易后入账。
 - **个人地址 Telegram Bot（设想）。** 用户订阅自己的钱包，Bot 保存事件后，根据资金方向推送转入或转出提醒，并附上交易哈希。
 - **多钱包对账（设想）。** 财务系统和异常转账提醒服务分别订阅同一组资金地址。每条链只扫一次，两个服务各自消费事件、独立确认处理。
 
@@ -42,7 +44,7 @@ curl -fsS -X PUT http://127.0.0.1:9081/v1/subscriptions \
 
 ## 建议为每条收款链配置兜底节点
 
-同一条链可配置两个独立运营商的兜底节点，每个节点单独登记一次。失败区块在符合高度要求的兜底节点间轮询补扫。严格查询优先让两个可用的兜底节点同时核验；仅有一个可用时，默认可由普通节点补足另一票。 [API](docs/api/zh-CN.md#fallback)
+每个兜底节点单独登记。失败区块在符合高度要求的兜底节点间轮询补扫。 [API](docs/api/zh-CN.md#fallback)
 
 ```sh
 BASE=http://127.0.0.1:9081

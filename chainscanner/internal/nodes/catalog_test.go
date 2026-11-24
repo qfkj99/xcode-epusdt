@@ -65,7 +65,7 @@ func TestBuiltinRoutesAndHeightOnlyNodes(t *testing.T) {
 		}
 	}
 	for _, n := range list {
-		if n.Network == "bitcoin" && n.Scannable {
+		if n.Network == "bitcoin" && n.Scannable != (n.Protocol == "jsonrpc" && !strings.Contains(n.URL, "rpcnode.dev")) {
 			t.Fatal(n.NodeEndpoint)
 		}
 		if strings.Contains(n.URL, "yellowstone-grpc.publicnode.com") {
@@ -115,7 +115,7 @@ func TestAvalancheBuiltinSharesHistoryAndLookupVote(t *testing.T) {
 		t.Fatal("Avalanche WS and HTTP must share one history lane")
 	}
 	lookup, ok := chains.LookupRoute(pair)
-	if !ok || lookup != history || providerKey(pair) != providerKey(history) {
+	if !ok || lookup != history || chains.ProviderKey(pair) != chains.ProviderKey(history) {
 		t.Fatal("expected one lookup provider", lookup)
 	}
 }

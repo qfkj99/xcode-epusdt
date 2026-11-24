@@ -26,6 +26,8 @@ import (
 func Canonical(n, a string) (string, error) {
 	a = strings.TrimSpace(a)
 	switch {
+	case n == "bitcoin":
+		return bitcoinAddress(a)
 	case IsEVM(n):
 		if common.IsHexAddress(a) {
 			return strings.ToLower(common.HexToAddress(a).Hex()), nil
@@ -94,7 +96,19 @@ type jsonSource struct {
 }
 
 func NewSource(ctx context.Context, n Network) (Source, error) {
-	return newSource(ctx, n, false, true)
+	src, err := newSource(ctx, n, false, true)
+	if err != nil {
+		return nil, err
+	}
+	if s, ok := src.(*jsonSource); ok && n.Name == "solana" {
+		probe, cancel := context.WithTimeout(ctx, 10*time.Second)
+		defer cancel()
+		if err := s.verifyMainnet(probe); err != nil {
+			s.Close()
+			return nil, err
+		}
+	}
+	return src, nil
 }
 
 func newSource(ctx context.Context, n Network, discovered, watch bool) (Source, error) {
@@ -125,7 +139,7 @@ func newSource(ctx context.Context, n Network, discovered, watch bool) (Source, 
 		securePublicHTTP(s.http)
 	}
 	switch {
-	case IsEVM(n.Name) || n.Name == "solana":
+	case IsEVM(n.Name) || n.Name == "solana" || n.Name == "bitcoin":
 		opts := []rpc.ClientOption{rpc.WithHTTPClient(s.http)}
 		if discovered {
 			opts = append(opts, publicSocketOptions()...)
@@ -146,6 +160,13 @@ func newSource(ctx context.Context, n Network, discovered, watch bool) (Source, 
 			return nil, err
 		}
 		s.rpc = c
+		if n.Name == "bitcoin" {
+			v, e := s.call(ctx, "getblockhash", 0)
+			if e != nil || v.Str != bitcoinGenesis {
+				s.Close()
+				return nil, errors.Join(errors.New("expected Bitcoin mainnet genesis"), e)
+			}
+		}
 		if IsEVM(n.Name) {
 			probe, cancel := context.WithTimeout(ctx, 10*time.Second)
 			defer cancel()
@@ -238,6 +259,12 @@ func (s *jsonSource) request(ctx context.Context, path string, post any) (gjson.
 		if res.StatusCode == http.StatusTooManyRequests {
 			return gjson.Result{}, ErrRateLimited
 		}
+		if s.n.Name == "aptos" && res.StatusCode == http.StatusNotFound && strings.HasPrefix(strings.TrimPrefix(path, "/v1"), "/transactions/by_hash/") {
+			body, readErr := io.ReadAll(io.LimitReader(res.Body, 8192))
+			if readErr == nil && gjson.ValidBytes(body) && gjson.GetBytes(body, "error_code").Str == "transaction_not_found" {
+				return gjson.Result{}, ErrTransactionMissing
+			}
+		}
 		return gjson.Result{}, rpc.HTTPError{StatusCode: res.StatusCode, Status: res.Status}
 	}
 	b, err := io.ReadAll(io.LimitReader(res.Body, (64<<20)+1))
@@ -265,6 +292,8 @@ func (s *jsonSource) Head(ctx context.Context) (int64, error) {
 	switch {
 	case IsEVM(s.n.Name):
 		v, err = s.call(ctx, "eth_blockNumber")
+	case s.n.Name == "bitcoin":
+		v, err = s.call(ctx, "getblockcount")
 	case s.n.Name == "solana":
 		v, err = s.call(ctx, "getSlot", map[string]string{"commitment": "finalized"})
 	case s.n.Name == "aptos":
@@ -287,6 +316,8 @@ func (s *jsonSource) Read(ctx context.Context, next, head int64) (int64, []Activ
 	ctx, cancel := context.WithTimeout(ctx, 40*time.Second)
 	defer cancel()
 	switch s.n.Name {
+	case "bitcoin":
+		return s.bitcoinBlock(ctx, next, nil)
 	case "aptos":
 		return s.aptos(ctx, next, head)
 	case "tron":
@@ -311,10 +342,11 @@ func object(data any) json.RawMessage {
 }
 
 type Evidence struct {
-	Transaction json.RawMessage   `json:"transaction"`
-	Logs        []json.RawMessage `json:"logs,omitempty"`
-	Receipt     json.RawMessage   `json:"receipt,omitempty"`
-	Trace       json.RawMessage   `json:"trace,omitempty"`
+	RefreshAssets []string          `json:"refresh_assets,omitempty"`
+	Transaction   json.RawMessage   `json:"transaction"`
+	Logs          []json.RawMessage `json:"logs,omitempty"`
+	Receipt       json.RawMessage   `json:"receipt,omitempty"`
+	Trace         json.RawMessage   `json:"trace,omitempty"`
 }
 
 func indexTopics(a *[]string, n string, topics []gjson.Result) {
